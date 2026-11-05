@@ -1,0 +1,38 @@
+name: offline-concurrency-gate
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  swift-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        timeout-minutes: 2
+        with:
+          persist-credentials: false
+      - name: Prepare official Swift and distribution Python runtime
+        timeout-minutes: 8
+        run: |
+          docker pull swift:6.2-noble@sha256:22edf4bb29f6d43ad77bfdb1757666992d63a50ab124c41176f8c8c44ab69855
+          docker build --pull=false --tag atr-qualified:0.1.0 .
+      - name: Offline tests and independently installed consumer
+        timeout-minutes: 6
+        run: >-
+          docker run --rm --pull=never --network=none --cap-drop=ALL
+          --security-opt=no-new-privileges --user=1000:1000
+          --memory=1g --memory-swap=1g --cpus=2 --pids-limit=256
+          --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=536870912,uid=1000,gid=1000
+          --mount type=bind,src=${{ github.workspace }},dst=/workspace,readonly
+          atr-qualified:0.1.0 /bin/sh scripts/test-offline.sh
+      - name: Offline installed EN and PT-BR demos and package verification
+        timeout-minutes: 5
+        run: >-
+          docker run --rm --pull=never --network=none --cap-drop=ALL
+          --security-opt=no-new-privileges --user=1000:1000
+          --memory=1g --memory-swap=1g --cpus=2 --pids-limit=256
+          --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=536870912,uid=1000,gid=1000
+          --mount type=bind,src=${{ github.workspace }},dst=/workspace,readonly
+          atr-qualified:0.1.0 /bin/sh scripts/package.sh

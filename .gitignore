@@ -1,0 +1,6 @@
+.build/
+.swiftpm/
+artifacts/
+*.tar
+*.profraw
+.DS_Store
